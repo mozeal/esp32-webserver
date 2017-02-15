@@ -27,6 +27,7 @@ const int CONNECTED_BIT = BIT0;
 //static char* TAG = "app_main";
 
 char *json_unformatted;
+wifi_mode_t wifi_mode;
 
 const static char http_html_hdr[] =
 	"HTTP/1.1 200 OK\r\nContent-type: text/html\r\n\r\n";
@@ -79,16 +80,45 @@ static void initialize_wifi(void) {
 	wifi_init_config_t cfg = WIFI_INIT_CONFIG_DEFAULT();
 	ESP_ERROR_CHECK( esp_wifi_init(&cfg) );
 	ESP_ERROR_CHECK( esp_wifi_set_storage(WIFI_STORAGE_FLASH) );
-	ESP_ERROR_CHECK( esp_wifi_set_mode(WIFI_MODE_STA) );
-	wifi_config_t sta_config = {
-		.sta = {
-			.ssid = "Nat",
-			.password = "123456789",
-			.bssid_set = false
-		}
-	};
+	ESP_ERROR_CHECK( esp_wifi_set_mode(wifi_mode) );
 
-	ESP_ERROR_CHECK( esp_wifi_set_config(WIFI_IF_STA, &sta_config) );
+	wifi_config_t conf;
+	wifi_interface_t wifi_if;
+
+	if (wifi_mode == WIFI_MODE_STA) {
+		conf = {
+			.sta = {
+				.ssid = "Nat",
+				.password = "123456789",
+				.bssid_set = false
+			}
+		};
+		wifi_if = WIFI_IF_STA;
+	} else if (wifi_mode == WIFI_MODE_AP) {
+		conf = {
+			.ap = {
+				.ssid = "TEST",
+				.ssid_len = 4,
+				.password = "123456789",
+				.authmode = WIFI_AUTH_WPA2_PSK,
+				.ssid_hidden = 0,
+				.max_connection = 10,
+				.beacon_interval = 100
+			}
+		};
+		wifi_if = WIFI_IF_AP;
+
+		// Configure the IP address and DHCP server.
+		tcpip_adapter_ip_info_t ipInfo;
+		IP4_ADDR(&ipInfo.ip, 192,168,1,1);
+		IP4_ADDR(&ipInfo.gw, 192,168,1,1);
+		IP4_ADDR(&ipInfo.netmask, 255,255,255,0);
+		tcpip_adapter_dhcps_stop(TCPIP_ADAPTER_IF_AP);
+		if (tcpip_adapter_set_ip_info(TCPIP_ADAPTER_IF_AP, &ipInfo) == ESP_OK) {
+			return tcpip_adapter_dhcps_start(TCPIP_ADAPTER_IF_AP) == ESP_OK;
+		}
+	}
+	ESP_ERROR_CHECK( esp_wifi_set_config(wifi_if, &conf) );
 	ESP_ERROR_CHECK( esp_wifi_start() );
 }
 
@@ -201,6 +231,9 @@ static void generate_json() {
 int app_main(void) {
 	nvs_flash_init();
 	system_init();
+
+	wifi_mode = WIFI_MODE_AP;
+
 	initialize_wifi();
 
 	gpio_pad_select_gpio(LED_BUILTIN);
