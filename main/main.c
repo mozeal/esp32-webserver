@@ -46,35 +46,33 @@ const static char http_index_hml[] = "<!DOCTYPE html>"
 	"</html>\n";
 
 
-
-
 static esp_err_t event_handler(void *ctx, system_event_t *event) {
 	switch(event->event_id) {
-	case SYSTEM_EVENT_STA_START:
-		esp_wifi_connect();
-		break;
-	case SYSTEM_EVENT_STA_GOT_IP:
-		xEventGroupSetBits(wifi_event_group, CONNECTED_BIT);
-		printf("got ip\n");
-		printf("ip: " IPSTR "\n", IP2STR(&event->event_info.got_ip.ip_info.ip));
-		printf("netmask: " IPSTR "\n", IP2STR(&event->event_info.got_ip.ip_info.netmask));
-		printf("gw: " IPSTR "\n", IP2STR(&event->event_info.got_ip.ip_info.gw));
-		printf("\n");
-		fflush(stdout);
-		break;
-	case SYSTEM_EVENT_STA_DISCONNECTED:
-		/* This is a workaround as ESP32 WiFi libs don't currently
-		   auto-reassociate. */
-		esp_wifi_connect();
-		xEventGroupClearBits(wifi_event_group, CONNECTED_BIT);
-		break;
-	default:
-		break;
+		case SYSTEM_EVENT_STA_START:
+			esp_wifi_connect();
+			break;
+		case SYSTEM_EVENT_STA_GOT_IP:
+			xEventGroupSetBits(wifi_event_group, CONNECTED_BIT);
+			printf("got ip\n");
+			printf("ip: " IPSTR "\n", IP2STR(&event->event_info.got_ip.ip_info.ip));
+			printf("netmask: " IPSTR "\n", IP2STR(&event->event_info.got_ip.ip_info.netmask));
+			printf("gw: " IPSTR "\n", IP2STR(&event->event_info.got_ip.ip_info.gw));
+			printf("\n");
+			fflush(stdout);
+			break;
+		case SYSTEM_EVENT_STA_DISCONNECTED:
+			/* This is a workaround as ESP32 WiFi libs don't currently
+			   auto-reassociate. */
+			esp_wifi_connect();
+			xEventGroupClearBits(wifi_event_group, CONNECTED_BIT);
+			break;
+		default:
+			break;
 	}
 	return ESP_OK;
 }
 
-static void initialise_wifi(void) {
+static void initialize_wifi(void) {
 	tcpip_adapter_init();
 	wifi_event_group = xEventGroupCreate();
 	ESP_ERROR_CHECK( esp_event_loop_init(event_handler, NULL) );
@@ -112,12 +110,12 @@ static void http_server_netconn_serve(struct netconn *conn) {
 	/* Is this an HTTP GET command? (only check the first 5 chars, since
 	 there are other formats for GET, and we're keeping it very simple )*/
 	printf("buffer = %s \n", buf);
-	if (buflen>=5 &&
-		buf[0]=='G' &&
-		buf[1]=='E' &&
-		buf[2]=='T' &&
-		buf[3]==' ' &&
-		buf[4]=='/' ) {
+	if (buflen >= 5 &&
+		buf[0] == 'G' &&
+		buf[1] == 'E' &&
+		buf[2] == 'T' &&
+		buf[3] == ' ' &&
+		buf[4] == '/' ) {
 			printf("buf[5] = %c\n", buf[5]);
 			/* Send the HTML header
 			 * subtract 1 from the size, since we dont send the \0 in the string
@@ -126,15 +124,15 @@ static void http_server_netconn_serve(struct netconn *conn) {
 
 			netconn_write(conn, http_html_hdr, sizeof(http_html_hdr)-1, NETCONN_NOCOPY);
 
-			if(buf[5]=='h') {
+			if(buf[5] == 'h') {
 				gpio_set_level(LED_BUILTIN, 0);
 				/* Send our HTML page */
 				netconn_write(conn, http_index_hml, sizeof(http_index_hml)-1, NETCONN_NOCOPY);
-			} else if (buf[5]=='l') {
+			} else if (buf[5] == 'l') {
 				gpio_set_level(LED_BUILTIN, 1);
 				/* Send our HTML page */
 				netconn_write(conn, http_index_hml, sizeof(http_index_hml)-1, NETCONN_NOCOPY);
-			} else if (buf[5]=='j') {
+			} else if (buf[5] == 'j') {
 				netconn_write(conn, json_unformatted, strlen(json_unformatted), NETCONN_NOCOPY);
 			} else {
 				netconn_write(conn, http_index_hml, sizeof(http_index_hml)-1, NETCONN_NOCOPY);
@@ -168,15 +166,10 @@ static void http_server(void *pvParameters) {
 
 
 static void generate_json() {
-	cJSON *root, *info, *d;
+	cJSON *root, *info;
 	root = cJSON_CreateObject();
 
-	cJSON_AddItemToObject(root, "d", d = cJSON_CreateObject());
 	cJSON_AddItemToObject(root, "info", info = cJSON_CreateObject());
-
-	cJSON_AddStringToObject(d, "myName", "CMMC-ESP32-NANO");
-	cJSON_AddNumberToObject(d, "temperature", 30.100);
-	cJSON_AddNumberToObject(d, "humidity", 70.123);
 
 	cJSON_AddStringToObject(info, "ssid", "dummy");
 	cJSON_AddNumberToObject(info, "heap", system_get_free_heap_size());
@@ -208,7 +201,7 @@ static void generate_json() {
 int app_main(void) {
 	nvs_flash_init();
 	system_init();
-	initialise_wifi();
+	initialize_wifi();
 
 	gpio_pad_select_gpio(LED_BUILTIN);
 
