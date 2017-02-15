@@ -67,6 +67,19 @@ static esp_err_t event_handler(void *ctx, system_event_t *event) {
 			esp_wifi_connect();
 			xEventGroupClearBits(wifi_event_group, CONNECTED_BIT);
 			break;
+		case SYSTEM_EVENT_AP_START:
+			printf("SYSTEM_EVENT_AP_START.\n");
+			// Configure the IP address and DHCP server.
+			tcpip_adapter_ip_info_t ipInfo;
+			IP4_ADDR(&ipInfo.ip, 192,168,1,1);
+			IP4_ADDR(&ipInfo.gw, 192,168,1,1);
+			IP4_ADDR(&ipInfo.netmask, 255,255,255,0);
+			tcpip_adapter_dhcps_stop(TCPIP_ADAPTER_IF_AP);
+			if (tcpip_adapter_set_ip_info(TCPIP_ADAPTER_IF_AP, &ipInfo) == ESP_OK) {
+				printf("starting DHCP server.\n");
+				return tcpip_adapter_dhcps_start(TCPIP_ADAPTER_IF_AP) == ESP_OK;
+			}
+			break;
 		default:
 			break;
 	}
@@ -79,47 +92,35 @@ static void initialize_wifi(void) {
 	ESP_ERROR_CHECK( esp_event_loop_init(event_handler, NULL) );
 	wifi_init_config_t cfg = WIFI_INIT_CONFIG_DEFAULT();
 	ESP_ERROR_CHECK( esp_wifi_init(&cfg) );
-	ESP_ERROR_CHECK( esp_wifi_set_storage(WIFI_STORAGE_FLASH) );
+	ESP_ERROR_CHECK( esp_wifi_set_storage(WIFI_STORAGE_RAM) );
 	ESP_ERROR_CHECK( esp_wifi_set_mode(wifi_mode) );
 
-	wifi_config_t conf;
-	wifi_interface_t wifi_if;
-
 	if (wifi_mode == WIFI_MODE_STA) {
-		conf = {
+		wifi_config_t conf = {
 			.sta = {
 				.ssid = "Nat",
 				.password = "123456789",
 				.bssid_set = false
 			}
 		};
-		wifi_if = WIFI_IF_STA;
+
+		ESP_ERROR_CHECK( esp_wifi_set_config(WIFI_IF_AP, &conf) );
+		ESP_ERROR_CHECK( esp_wifi_start() );
 	} else if (wifi_mode == WIFI_MODE_AP) {
-		conf = {
+		wifi_config_t conf = {
 			.ap = {
 				.ssid = "TEST",
 				.ssid_len = 4,
 				.password = "123456789",
 				.authmode = WIFI_AUTH_WPA2_PSK,
 				.ssid_hidden = 0,
-				.max_connection = 10,
-				.beacon_interval = 100
+				.max_connection = 10
 			}
 		};
-		wifi_if = WIFI_IF_AP;
 
-		// Configure the IP address and DHCP server.
-		tcpip_adapter_ip_info_t ipInfo;
-		IP4_ADDR(&ipInfo.ip, 192,168,1,1);
-		IP4_ADDR(&ipInfo.gw, 192,168,1,1);
-		IP4_ADDR(&ipInfo.netmask, 255,255,255,0);
-		tcpip_adapter_dhcps_stop(TCPIP_ADAPTER_IF_AP);
-		if (tcpip_adapter_set_ip_info(TCPIP_ADAPTER_IF_AP, &ipInfo) == ESP_OK) {
-			return tcpip_adapter_dhcps_start(TCPIP_ADAPTER_IF_AP) == ESP_OK;
-		}
+		ESP_ERROR_CHECK( esp_wifi_set_config(WIFI_IF_AP, &conf) );
+		ESP_ERROR_CHECK( esp_wifi_start() );
 	}
-	ESP_ERROR_CHECK( esp_wifi_set_config(wifi_if, &conf) );
-	ESP_ERROR_CHECK( esp_wifi_start() );
 }
 
 static void http_server_netconn_serve(struct netconn *conn) {
