@@ -18,7 +18,13 @@
 
 #include "cJSON.h"
 
-#define LED_BUILTIN 16
+#define CTRL1 16
+#define CTRL2 17
+#define CTRL3 18
+#define CTRL4 19
+
+int ctrl1_on, ctrl2_on, ctrl3_on, ctrl4_on;
+
 #define delay(ms) (vTaskDelay(ms/portTICK_RATE_MS))
 
 
@@ -48,7 +54,7 @@ const static char http_index_hml[] = "<!DOCTYPE html>"
 
 
 static esp_err_t event_handler(void *ctx, system_event_t *event) {
-	switch(event->event_id) {
+	switch (event->event_id) {
 		case SYSTEM_EVENT_STA_START:
 			esp_wifi_connect();
 			break;
@@ -140,7 +146,7 @@ static void http_server_netconn_serve(struct netconn *conn) {
 	// strncpy(_mBuffer, buf, buflen);
 
 	/* Is this an HTTP GET command? (only check the first 5 chars, since
-	 there are other formats for GET, and we're keeping it very simple )*/
+	 there are other formats for GET, and we're keeping it very simple). */
 	printf("buffer = %s \n", buf);
 	if (buflen >= 5 &&
 		buf[0] == 'G' &&
@@ -148,7 +154,6 @@ static void http_server_netconn_serve(struct netconn *conn) {
 		buf[2] == 'T' &&
 		buf[3] == ' ' &&
 		buf[4] == '/' ) {
-			printf("buf[5] = %c\n", buf[5]);
 			/* Send the HTML header
 			 * subtract 1 from the size, since we dont send the \0 in the string
 			 * NETCONN_NOCOPY: our data is const static, so no need to copy it
@@ -156,17 +161,55 @@ static void http_server_netconn_serve(struct netconn *conn) {
 
 			netconn_write(conn, http_html_hdr, sizeof(http_html_hdr)-1, NETCONN_NOCOPY);
 
-			if(buf[5] == 'h') {
-				gpio_set_level(LED_BUILTIN, 0);
-				/* Send our HTML page */
-				netconn_write(conn, http_index_hml, sizeof(http_index_hml)-1, NETCONN_NOCOPY);
-			} else if (buf[5] == 'l') {
-				gpio_set_level(LED_BUILTIN, 1);
-				/* Send our HTML page */
-				netconn_write(conn, http_index_hml, sizeof(http_index_hml)-1, NETCONN_NOCOPY);
-			} else if (buf[5] == 'j') {
+			if (buflen >= 7) {
+				uint32_t level = 0;
+				int valid = 1;
+				// May be a GPIO control request. Check to see.
+				// Check for 'h'(igh) or 'l'(ow).
+				switch (buf[5]) {
+					case 'h':
+						level = 1;
+						break;
+					case 'l':
+						level = 0;
+						break;
+					default: // Neither 'h' nor 'l', so this is not a valid GPIO set request.
+						valid = 0;
+						break;
+				}
+				if (valid) {
+					switch (buf[6]) {
+						case '1':
+							gpio_set_level(CTRL1, level);
+							ctrl1_on = level;
+							break;
+						case '2':
+							gpio_set_level(CTRL2, level);
+							ctrl2_on = level;
+							break;
+						case '3':
+							gpio_set_level(CTRL3, level);
+							ctrl3_on = level;
+							break;
+						case '4':
+							gpio_set_level(CTRL4, level);
+							ctrl4_on = level;
+							break;
+						default:
+							valid = 0;
+							break;
+					}
+				}
+				if (valid) {
+					netconn_write(conn, "OK\n", 3, NETCONN_NOCOPY);
+				} else {
+					netconn_write(conn, "FAIL\n", 5, NETCONN_NOCOPY);
+				}
+			} else if ((buflen >= 6) && (buf[5] == 'j')) {
+				// JSON status.
 				netconn_write(conn, json_unformatted, strlen(json_unformatted), NETCONN_NOCOPY);
 			} else {
+				// Default index page.
 				netconn_write(conn, http_index_hml, sizeof(http_index_hml)-1, NETCONN_NOCOPY);
 			}
 		}
@@ -238,10 +281,28 @@ int app_main(void) {
 
 	initialize_wifi();
 
-	gpio_pad_select_gpio(LED_BUILTIN);
+	// Initialize GPIOs.
+	gpio_pad_select_gpio(CTRL1);
+	gpio_pad_select_gpio(CTRL2);
+	gpio_pad_select_gpio(CTRL3);
+	gpio_pad_select_gpio(CTRL4);
 
-	/* Set the GPIO as a push/pull output */
-	gpio_set_direction(LED_BUILTIN, GPIO_MODE_OUTPUT);
+	gpio_set_direction(CTRL1, GPIO_MODE_OUTPUT);
+	gpio_set_direction(CTRL2, GPIO_MODE_OUTPUT);
+	gpio_set_direction(CTRL3, GPIO_MODE_OUTPUT);
+	gpio_set_direction(CTRL4, GPIO_MODE_OUTPUT);
+
+	gpio_set_level(CTRL1, 0);
+	gpio_set_level(CTRL2, 0);
+	gpio_set_level(CTRL3, 0);
+	gpio_set_level(CTRL4, 0);
+
+	ctrl1_on = 0;
+	ctrl2_on = 0;
+	ctrl3_on = 0;
+	ctrl4_on = 0;
+
+
 	xTaskCreate(&generate_json, "json", 2048, NULL, 5, NULL);
 	xTaskCreate(&http_server, "http_server", 2048, NULL, 5, NULL);
 	return 0;
