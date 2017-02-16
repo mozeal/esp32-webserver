@@ -37,6 +37,9 @@ wifi_mode_t wifi_mode;
 
 const static char http_html_hdr[] =
 	"HTTP/1.1 200 OK\r\nContent-type: text/html\r\n\r\n";
+const static char http_json_hdr[] =
+	"HTTP/1.1 200 OK\r\nContent-type: application/json\r\n\r\n";
+
 const static char http_index_hml[] = "<!DOCTYPE html>"
 	"<html>\n"
 	"<head>\n"
@@ -154,17 +157,20 @@ static void http_server_netconn_serve(struct netconn *conn) {
 		buf[2] == 'T' &&
 		buf[3] == ' ' &&
 		buf[4] == '/' ) {
-			/* Send the HTML header
-			 * subtract 1 from the size, since we dont send the \0 in the string
-			 * NETCONN_NOCOPY: our data is const static, so no need to copy it
-			*/
-
-			netconn_write(conn, http_html_hdr, sizeof(http_html_hdr)-1, NETCONN_NOCOPY);
-
 			if ((buflen >= 6) && (buf[5] == 'j')) {
 				// JSON status.
+				// Send header with 'Content-type: application/json'. 
+				netconn_write(conn, http_json_hdr, sizeof(http_json_hdr)-1, NETCONN_NOCOPY);
+				// Send the JSON status.
 				netconn_write(conn, json_unformatted, strlen(json_unformatted), NETCONN_NOCOPY);
 			} else if (buflen >= 7) {
+				/* Send the HTML header
+				 * subtract 1 from the size, since we dont send the \0 in the string
+				 * NETCONN_NOCOPY: our data is const static, so no need to copy it
+				*/
+
+				netconn_write(conn, http_html_hdr, sizeof(http_html_hdr)-1, NETCONN_NOCOPY);
+				
 				uint32_t level = 0;
 				int valid = 1;
 				// May be a GPIO control request. Check to see.
@@ -209,6 +215,12 @@ static void http_server_netconn_serve(struct netconn *conn) {
 					netconn_write(conn, "FAIL\n", 5, NETCONN_NOCOPY);
 				}
 			} else {
+				/* Send the HTML header
+				 * subtract 1 from the size, since we dont send the \0 in the string
+				 * NETCONN_NOCOPY: our data is const static, so no need to copy it
+				*/
+
+				netconn_write(conn, http_html_hdr, sizeof(http_html_hdr)-1, NETCONN_NOCOPY);
 				// Default index page.
 				netconn_write(conn, http_index_hml, sizeof(http_index_hml)-1, NETCONN_NOCOPY);
 			}
