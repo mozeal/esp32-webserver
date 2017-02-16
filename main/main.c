@@ -161,7 +161,10 @@ static void http_server_netconn_serve(struct netconn *conn) {
 
 			netconn_write(conn, http_html_hdr, sizeof(http_html_hdr)-1, NETCONN_NOCOPY);
 
-			if (buflen >= 7) {
+			if ((buflen >= 6) && (buf[5] == 'j')) {
+				// JSON status.
+				netconn_write(conn, json_unformatted, strlen(json_unformatted), NETCONN_NOCOPY);
+			} else if (buflen >= 7) {
 				uint32_t level = 0;
 				int valid = 1;
 				// May be a GPIO control request. Check to see.
@@ -205,9 +208,6 @@ static void http_server_netconn_serve(struct netconn *conn) {
 				} else {
 					netconn_write(conn, "FAIL\n", 5, NETCONN_NOCOPY);
 				}
-			} else if ((buflen >= 6) && (buf[5] == 'j')) {
-				// JSON status.
-				netconn_write(conn, json_unformatted, strlen(json_unformatted), NETCONN_NOCOPY);
 			} else {
 				// Default index page.
 				netconn_write(conn, http_index_hml, sizeof(http_index_hml)-1, NETCONN_NOCOPY);
