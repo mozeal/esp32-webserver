@@ -241,15 +241,22 @@ static void http_server(void *pvParameters) {
 
 
 static void generate_json() {
-	cJSON *root, *info;
+	cJSON *root, *info, *relays;
 	root = cJSON_CreateObject();
 
 	cJSON_AddItemToObject(root, "info", info = cJSON_CreateObject());
+	cJSON_AddItemToObject(root, "relays", relays = cJSON_CreateObject());
 
 	cJSON_AddStringToObject(info, "ssid", "dummy");
 	cJSON_AddNumberToObject(info, "heap", system_get_free_heap_size());
 	cJSON_AddStringToObject(info, "sdk", system_get_sdk_version());
 	cJSON_AddNumberToObject(info, "time", system_get_time());
+
+	cJSON_AddNumberToObject(relays, "RELAY1", ctrl1_on);
+	cJSON_AddNumberToObject(relays, "RELAY2", ctrl2_on);
+	cJSON_AddNumberToObject(relays, "RELAY3", ctrl3_on);
+	cJSON_AddNumberToObject(relays, "RELAY4", ctrl4_on);
+
 
 	while (1) {
 		cJSON_ReplaceItemInObject(info, "heap",
@@ -258,6 +265,15 @@ static void generate_json() {
 				cJSON_CreateNumber(system_get_time()));
 		cJSON_ReplaceItemInObject(info, "sdk",
 				cJSON_CreateString(system_get_sdk_version()));
+
+		cJSON_ReplaceItemInObject(relays, "RELAY1", 
+				cJSON_CreateNumber(ctrl1_on));
+		cJSON_ReplaceItemInObject(relays, "RELAY2", 
+				cJSON_CreateNumber(ctrl2_on));
+		cJSON_ReplaceItemInObject(relays, "RELAY3", 
+			cJSON_CreateNumber(ctrl3_on));
+		cJSON_ReplaceItemInObject(relays, "RELAY4", 
+			cJSON_CreateNumber(ctrl4_on));
 
 		json_unformatted = cJSON_PrintUnformatted(root);
 		printf("[len = %d]	", strlen(json_unformatted));
