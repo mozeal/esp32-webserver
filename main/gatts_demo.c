@@ -32,6 +32,10 @@
 
 #include "sdkconfig.h"
 
+#include "esp32-webserver.h"
+
+extern char *json_unformatted;
+
 #define GATTS_TAG "GATTS_DEMO"
 
 ///Declare the static function 
@@ -48,7 +52,7 @@ static void gatts_profile_b_event_handler(esp_gatts_cb_event_t event, esp_gatt_i
 #define GATTS_DESCR_UUID_TEST_B     0x2222
 #define GATTS_NUM_HANDLE_TEST_B     4
 
-#define TEST_DEVICE_NAME            "ESP_GATTS_DEMO"
+#define TEST_DEVICE_NAME            "relay32"
 #define TEST_MANUFACTURER_DATA_LEN  17
 
 #define GATTS_DEMO_CHAR_VAL_LEN_MAX 0x40
@@ -178,12 +182,16 @@ static void gatts_profile_a_event_handler(esp_gatts_cb_event_t event, esp_gatt_i
         ESP_LOGI(GATTS_TAG, "GATT_READ_EVT, conn_id %d, trans_id %d, handle %d\n", param->read.conn_id, param->read.trans_id, param->read.handle);
         esp_gatt_rsp_t rsp;
         memset(&rsp, 0, sizeof(esp_gatt_rsp_t));
-        rsp.attr_value.handle = param->read.handle;
-        rsp.attr_value.len = 4;
-        rsp.attr_value.value[0] = 0xde;
-        rsp.attr_value.value[1] = 0xed;
-        rsp.attr_value.value[2] = 0xbe;
-        rsp.attr_value.value[3] = 0xef;
+//        rsp.attr_value.handle = param->read.handle;
+//		       rsp.attr_value.len = strlen(json_unformatted) > ESP_GATT_MAX_ATTR_LEN ? ESP_GATT_MAX_ATTR_LEN : strlen(json_unformatted); // Send up to the maximum of ESP_GATT_MAX_ATTR_LEN.
+//		printf("len=%d\n", rsp.attr_value.len);
+//        strncpy((char *)&rsp.attr_value.value, json_unformatted, rsp.attr_value.len);
+//		printf("val=%s\n", rsp.attr_value.value);
+         rsp.attr_value.len = 4;
+         rsp.attr_value.value[0] = 0xde;
+         rsp.attr_value.value[1] = 0xed;
+         rsp.attr_value.value[2] = 0xbe;
+         rsp.attr_value.value[3] = 0xef;
         esp_ble_gatts_send_response(gatts_if, param->read.conn_id, param->read.trans_id,
                                     ESP_GATT_OK, &rsp);
         break;
@@ -388,7 +396,7 @@ static void gatts_event_handler(esp_gatts_cb_event_t event, esp_gatt_if_t gatts_
     } while (0);
 }
 
-void app_main()
+void bt_main()
 {
     esp_err_t ret;
 

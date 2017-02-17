@@ -18,6 +18,8 @@
 
 #include "cJSON.h"
 
+#include "esp32-webserver.h"
+
 #define CTRL1 16
 #define CTRL2 17
 #define CTRL3 18
@@ -330,8 +332,10 @@ int app_main(void) {
 	ctrl3_on = 0;
 	ctrl4_on = 0;
 
-
 	xTaskCreate(&generate_json, "json", 2048, NULL, 5, NULL);
 	xTaskCreate(&http_server, "http_server", 2048, NULL, 5, NULL);
+
+	bt_main(); // Initiate Bluetooth services.
+
 	return 0;
 }
