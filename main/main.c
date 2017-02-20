@@ -135,6 +135,31 @@ static void initialize_wifi(void) {
 	}
 }
 
+int set_relay_state(int relay, uint32_t level) {
+	switch (relay) {
+		case 1:
+			gpio_set_level(CTRL1, level);
+			ctrl1_on = level;
+			break;
+		case 2:
+			gpio_set_level(CTRL2, level);
+			ctrl2_on = level;
+			break;
+		case 3:
+			gpio_set_level(CTRL3, level);
+			ctrl3_on = level;
+			break;
+		case 4:
+			gpio_set_level(CTRL4, level);
+			ctrl4_on = level;
+			break;
+		default:
+			return 0;
+			break;
+	}
+	return 1;
+}
+
 static void http_server_netconn_serve(struct netconn *conn) {
 	struct netbuf *inbuf;
 	char *buf;
@@ -189,27 +214,7 @@ static void http_server_netconn_serve(struct netconn *conn) {
 						break;
 				}
 				if (valid) {
-					switch (buf[6]) {
-						case '1':
-							gpio_set_level(CTRL1, level);
-							ctrl1_on = level;
-							break;
-						case '2':
-							gpio_set_level(CTRL2, level);
-							ctrl2_on = level;
-							break;
-						case '3':
-							gpio_set_level(CTRL3, level);
-							ctrl3_on = level;
-							break;
-						case '4':
-							gpio_set_level(CTRL4, level);
-							ctrl4_on = level;
-							break;
-						default:
-							valid = 0;
-							break;
-					}
+					valid = set_relay_state(buf[6] - 48, level);
 				}
 				if (valid) {
 					netconn_write(conn, "OK\n", 3, NETCONN_NOCOPY);
@@ -334,7 +339,6 @@ int app_main(void) {
 
 	xTaskCreate(&generate_json, "json", 2048, NULL, 5, NULL);
 	xTaskCreate(&http_server, "http_server", 2048, NULL, 5, NULL);
-
 	bt_main(); // Initiate Bluetooth services.
 
 	return 0;

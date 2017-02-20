@@ -35,12 +35,12 @@
 #include "esp32-webserver.h"
 
 extern char *json_unformatted;
+extern int ctrl1_on, ctrl2_on, ctrl3_on, ctrl4_on;
 
 #define GATTS_TAG "GATTS_DEMO"
 
-///Declare the static function 
+// Declare the static function 
 static void gatts_profile_a_event_handler(esp_gatts_cb_event_t event, esp_gatt_if_t gatts_if, esp_ble_gatts_cb_param_t *param);
-static void gatts_profile_b_event_handler(esp_gatts_cb_event_t event, esp_gatt_if_t gatts_if, esp_ble_gatts_cb_param_t *param);
 
 #define GATTS_SERVICE_UUID_TEST_A   0x00FF
 #define GATTS_CHAR_UUID_TEST_A      0xFF01
@@ -154,24 +154,29 @@ static void gatts_profile_a_event_handler(esp_gatts_cb_event_t event, esp_gatt_i
 	case ESP_GATTS_READ_EVT: {
 		ESP_LOGI(GATTS_TAG, "GATT_READ_EVT, conn_id %d, trans_id %d, handle %d\n", param->read.conn_id, param->read.trans_id, param->read.handle);
 		esp_gatt_rsp_t rsp;
+
+		// Minimize the size of the packet. ~20 bytes is the max.
 		memset(&rsp, 0, sizeof(esp_gatt_rsp_t));
-//        rsp.attr_value.handle = param->read.handle;
-//		       rsp.attr_value.len = strlen(json_unformatted) > ESP_GATT_MAX_ATTR_LEN ? ESP_GATT_MAX_ATTR_LEN : strlen(json_unformatted); // Send up to the maximum of ESP_GATT_MAX_ATTR_LEN.
-//		printf("len=%d\n", rsp.attr_value.len);
-//        strncpy((char *)&rsp.attr_value.value, json_unformatted, rsp.attr_value.len);
-//		printf("val=%s\n", rsp.attr_value.value);
+		rsp.attr_value.handle = param->read.handle;
 		rsp.attr_value.len = 4;
-		rsp.attr_value.value[0] = 0xde;
-		rsp.attr_value.value[1] = 0xed;
-		rsp.attr_value.value[2] = 0xbe;
-		rsp.attr_value.value[3] = 0xef;
-		esp_ble_gatts_send_response(gatts_if, param->read.conn_id, param->read.trans_id,
-				SP_GATT_OK, &rsp);
+		rsp.attr_value.value[0] = ctrl1_on;
+		rsp.attr_value.value[1] = ctrl2_on;
+		rsp.attr_value.value[2] = ctrl3_on;
+		rsp.attr_value.value[3] = ctrl4_on;
+		if (rsp.attr_value.len > 0) // Only send the packet if the value length is greater than zero.
+			esp_ble_gatts_send_response(gatts_if, param->read.conn_id, param->read.trans_id,
+					ESP_GATT_OK, &rsp);
 		break;
 	}
 	case ESP_GATTS_WRITE_EVT: {
 		ESP_LOGI(GATTS_TAG, "GATT_WRITE_EVT, conn_id %d, trans_id %d, handle %d\n", param->write.conn_id, param->write.trans_id, param->write.handle);
 		ESP_LOGI(GATTS_TAG, "GATT_WRITE_EVT, value len %d, value %08x\n", param->write.len, *(uint32_t *)param->write.value);
+		if (param->write.len == 4) {
+			set_relay_state(1, param->write.value[0] > 0);
+			set_relay_state(2, param->write.value[1] > 0);
+			set_relay_state(3, param->write.value[2] > 0);
+			set_relay_state(4, param->write.value[3] > 0);
+		}
 		esp_ble_gatts_send_response(gatts_if, param->write.conn_id, param->write.trans_id, ESP_GATT_OK, NULL);
 		break;
 	}
