@@ -171,10 +171,6 @@ static void gatts_profile_a_event_handler(esp_gatts_cb_event_t event, esp_gatt_i
 	case ESP_GATTS_WRITE_EVT: {
 		ESP_LOGI(GATTS_TAG, "GATT_WRITE_EVT, conn_id %d, trans_id %d, handle %d\n", param->write.conn_id, param->write.trans_id, param->write.handle);
 		ESP_LOGI(GATTS_TAG, "GATT_WRITE_EVT, value len %d, value %08x\n", param->write.len, *(uint32_t *)param->write.value);
-		int i;
-		for (i = 0; i < param->write.len; i++)
-			printf("%02x", param->write.value[i]);
-		printf("\n");
 		if (param->write.len == 4) {
 			// 0xFF = no change.
 			if (param->write.value[0] != 0xFF)
