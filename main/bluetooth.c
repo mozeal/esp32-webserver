@@ -171,11 +171,20 @@ static void gatts_profile_a_event_handler(esp_gatts_cb_event_t event, esp_gatt_i
 	case ESP_GATTS_WRITE_EVT: {
 		ESP_LOGI(GATTS_TAG, "GATT_WRITE_EVT, conn_id %d, trans_id %d, handle %d\n", param->write.conn_id, param->write.trans_id, param->write.handle);
 		ESP_LOGI(GATTS_TAG, "GATT_WRITE_EVT, value len %d, value %08x\n", param->write.len, *(uint32_t *)param->write.value);
+		int i;
+		for (i = 0; i < param->write.len; i++)
+			printf("%02x", param->write.value[i]);
+		printf("\n");
 		if (param->write.len == 4) {
-			set_relay_state(1, param->write.value[0] > 0);
-			set_relay_state(2, param->write.value[1] > 0);
-			set_relay_state(3, param->write.value[2] > 0);
-			set_relay_state(4, param->write.value[3] > 0);
+			// 0xFF = no change.
+			if (param->write.value[0] != 0xFF)
+				set_relay_state(1, param->write.value[0] > 0);
+			if (param->write.value[1] != 0xFF)
+				set_relay_state(2, param->write.value[1] > 0);
+			if (param->write.value[2] != 0xFF)
+				set_relay_state(3, param->write.value[2] > 0);
+			if (param->write.value[3] != 0xFF)
+				set_relay_state(4, param->write.value[3] > 0);
 		}
 		esp_ble_gatts_send_response(gatts_if, param->write.conn_id, param->write.trans_id, ESP_GATT_OK, NULL);
 		break;
