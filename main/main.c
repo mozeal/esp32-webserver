@@ -20,15 +20,12 @@
 
 #include "esp32-webserver.h"
 
-#define CTRL1 16
-#define CTRL2 17
-#define CTRL3 18
-#define CTRL4 19
 
-int ctrl1_on, ctrl2_on, ctrl3_on, ctrl4_on;
+static int cntrl_pins[16] = {16, 17, 18, 19, 1, 3, 25, 26, 27, 14, 12, 13, 23, 22, 21, 5};
+
+static int cntrl_states[16];
 
 #define delay(ms) (vTaskDelay(ms/portTICK_RATE_MS))
-
 
 static EventGroupHandle_t wifi_event_group;
 const int CONNECTED_BIT = BIT0;
@@ -136,26 +133,11 @@ static void initialize_wifi(void) {
 }
 
 int set_relay_state(int relay, uint32_t level) {
-	switch (relay) {
-		case 1:
-			gpio_set_level(CTRL1, level);
-			ctrl1_on = level;
-			break;
-		case 2:
-			gpio_set_level(CTRL2, level);
-			ctrl2_on = level;
-			break;
-		case 3:
-			gpio_set_level(CTRL3, level);
-			ctrl3_on = level;
-			break;
-		case 4:
-			gpio_set_level(CTRL4, level);
-			ctrl4_on = level;
-			break;
-		default:
-			return 0;
-			break;
+	if ((relay >= 0) && (relay < 16)) {
+		gpio_set_level(cntrl_pins[relay], level)
+		cntrl_states[relay] = level;
+	} else {
+		return 0;
 	}
 	return 1;
 }
@@ -214,6 +196,7 @@ static void http_server_netconn_serve(struct netconn *conn) {
 						break;
 				}
 				if (valid) {
+					//FIXME: Parsing for more than one digit.
 					valid = set_relay_state(buf[6] - 48, level);
 				}
 				if (valid) {
@@ -260,6 +243,8 @@ static void http_server(void *pvParameters) {
 
 
 static void generate_json() {
+	int i;
+	char buf[16];
 	cJSON *root, *info, *relays;
 	root = cJSON_CreateObject();
 
@@ -271,11 +256,10 @@ static void generate_json() {
 	cJSON_AddStringToObject(info, "sdk", system_get_sdk_version());
 	cJSON_AddNumberToObject(info, "time", system_get_time());
 
-	cJSON_AddNumberToObject(relays, "RELAY1", ctrl1_on);
-	cJSON_AddNumberToObject(relays, "RELAY2", ctrl2_on);
-	cJSON_AddNumberToObject(relays, "RELAY3", ctrl3_on);
-	cJSON_AddNumberToObject(relays, "RELAY4", ctrl4_on);
-
+	for (i = 0; i < 16; i++) {
+		sprintf(buf, "RELAY%d", i); // Relay name.
+		cJSON_AddNumberToObject(relays, buf, cntrl_states[i]);
+	}
 
 	while (1) {
 		cJSON_ReplaceItemInObject(info, "heap",
@@ -285,14 +269,10 @@ static void generate_json() {
 		cJSON_ReplaceItemInObject(info, "sdk",
 				cJSON_CreateString(system_get_sdk_version()));
 
-		cJSON_ReplaceItemInObject(relays, "RELAY1", 
-				cJSON_CreateNumber(ctrl1_on));
-		cJSON_ReplaceItemInObject(relays, "RELAY2", 
-				cJSON_CreateNumber(ctrl2_on));
-		cJSON_ReplaceItemInObject(relays, "RELAY3", 
-			cJSON_CreateNumber(ctrl3_on));
-		cJSON_ReplaceItemInObject(relays, "RELAY4", 
-			cJSON_CreateNumber(ctrl4_on));
+		for (i = 0; i < 16; i++) {
+			sprintf(buf, "RELAY%d", i); // Relay name.
+			cJSON_ReplaceItemInObject(relays, buf, cJSON_CreateNumber(cntrl_states[i]));
+		}
 
 		json_unformatted = cJSON_PrintUnformatted(root);
 		printf("[len = %d]	", strlen(json_unformatted));
@@ -309,6 +289,7 @@ static void generate_json() {
 }
 
 int app_main(void) {
+	int i;
 	nvs_flash_init();
 	system_init();
 
@@ -317,25 +298,12 @@ int app_main(void) {
 	initialize_wifi();
 
 	// Initialize GPIOs.
-	gpio_pad_select_gpio(CTRL1);
-	gpio_pad_select_gpio(CTRL2);
-	gpio_pad_select_gpio(CTRL3);
-	gpio_pad_select_gpio(CTRL4);
-
-	gpio_set_direction(CTRL1, GPIO_MODE_OUTPUT);
-	gpio_set_direction(CTRL2, GPIO_MODE_OUTPUT);
-	gpio_set_direction(CTRL3, GPIO_MODE_OUTPUT);
-	gpio_set_direction(CTRL4, GPIO_MODE_OUTPUT);
-
-	gpio_set_level(CTRL1, 0);
-	gpio_set_level(CTRL2, 0);
-	gpio_set_level(CTRL3, 0);
-	gpio_set_level(CTRL4, 0);
-
-	ctrl1_on = 0;
-	ctrl2_on = 0;
-	ctrl3_on = 0;
-	ctrl4_on = 0;
+	for (i = 0; i < 16; i++) {
+		gpio_pad_select_gpio(cntrl_pins[i]);
+		gpio_set_direction(cntrl_pins[i], GPIO_MODE_OUTPUT);
+		gpio_set_level(cntrl_pins[i], 0);
+		cntrl_states[i] = 0;
+	}
 
 	xTaskCreate(&generate_json, "json", 2048, NULL, 5, NULL);
 	xTaskCreate(&http_server, "http_server", 2048, NULL, 5, NULL);
