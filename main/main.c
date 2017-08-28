@@ -23,7 +23,7 @@
 
 static int cntrl_pins[16] = {16, 17, 18, 19, 1, 3, 25, 26, 27, 14, 12, 13, 23, 22, 21, 5};
 
-static int cntrl_states[16];
+int cntrl_states[16];
 
 #define delay(ms) (vTaskDelay(ms/portTICK_RATE_MS))
 
@@ -134,7 +134,7 @@ static void initialize_wifi(void) {
 
 int set_relay_state(int relay, uint32_t level) {
 	if ((relay >= 0) && (relay < 16)) {
-		gpio_set_level(cntrl_pins[relay], level)
+		gpio_set_level(cntrl_pins[relay], level);
 		cntrl_states[relay] = level;
 	} else {
 		return 0;

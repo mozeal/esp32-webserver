@@ -35,7 +35,7 @@
 #include "esp32-webserver.h"
 
 extern char *json_unformatted;
-extern int ctrl1_on, ctrl2_on, ctrl3_on, ctrl4_on;
+extern int cntrl_states[16];
 
 #define GATTS_TAG "GATTS_DEMO"
 
@@ -158,11 +158,11 @@ static void gatts_profile_a_event_handler(esp_gatts_cb_event_t event, esp_gatt_i
 		// Minimize the size of the packet. ~20 bytes is the max.
 		memset(&rsp, 0, sizeof(esp_gatt_rsp_t));
 		rsp.attr_value.handle = param->read.handle;
-		rsp.attr_value.len = 4;
-		rsp.attr_value.value[0] = ctrl1_on;
-		rsp.attr_value.value[1] = ctrl2_on;
-		rsp.attr_value.value[2] = ctrl3_on;
-		rsp.attr_value.value[3] = ctrl4_on;
+		rsp.attr_value.len = 16;
+		int i;
+		for (i = 0; i < 16; i++)
+			rsp.attr_value.value[i] = cntrl_states[i];
+
 		if (rsp.attr_value.len > 0) // Only send the packet if the value length is greater than zero.
 			esp_ble_gatts_send_response(gatts_if, param->read.conn_id, param->read.trans_id,
 					ESP_GATT_OK, &rsp);
@@ -171,16 +171,13 @@ static void gatts_profile_a_event_handler(esp_gatts_cb_event_t event, esp_gatt_i
 	case ESP_GATTS_WRITE_EVT: {
 		ESP_LOGI(GATTS_TAG, "GATT_WRITE_EVT, conn_id %d, trans_id %d, handle %d\n", param->write.conn_id, param->write.trans_id, param->write.handle);
 		ESP_LOGI(GATTS_TAG, "GATT_WRITE_EVT, value len %d, value %08x\n", param->write.len, *(uint32_t *)param->write.value);
-		if (param->write.len == 4) {
+		if (param->write.len >= 4) {
 			// 0xFF = no change.
-			if (param->write.value[0] != 0xFF)
-				set_relay_state(1, param->write.value[0] > 0);
-			if (param->write.value[1] != 0xFF)
-				set_relay_state(2, param->write.value[1] > 0);
-			if (param->write.value[2] != 0xFF)
-				set_relay_state(3, param->write.value[2] > 0);
-			if (param->write.value[3] != 0xFF)
-				set_relay_state(4, param->write.value[3] > 0);
+			int i;
+			for (i = 0; i < 16; i++) {
+				if (param->write.value[i] != 0xFF)
+					set_relay_state(i+1, param->write.value[i] > 0);
+			}
 		}
 		esp_ble_gatts_send_response(gatts_if, param->write.conn_id, param->write.trans_id, ESP_GATT_OK, NULL);
 		break;
