@@ -76,7 +76,6 @@ static esp_err_t event_handler(void *ctx, system_event_t *event) {
 			xEventGroupClearBits(wifi_event_group, CONNECTED_BIT);
 			break;
 		case SYSTEM_EVENT_AP_START:
-			// AP has started up. Now start the DHCP server.
 			printf("SYSTEM_EVENT_AP_START.\n");
 			// Configure the IP address and DHCP server.
 			tcpip_adapter_ip_info_t ipInfo;
